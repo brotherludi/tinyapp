@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/brotherludi/tinyapp/issues"
   },
-  "homepage": "https://github.com/brotherludi/tinyapp#readme"
+  "homepage": "https://github.com/brotherludi/tinyapp#readme",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
 }
