@@ -91,22 +91,18 @@ const addUser = newUser => {
   return newUser
 }
 
-const checkIfAvail = (newVal, database) => {
-  for (user in database) {
-    if (!user[newVal]) {
-      return null;
-    }
-  }
-  return true;
-}
-
 app.post("/register", (req, res) => {
   const {email, password} = req.body;
-  if (email === '') {
-    res.status(400).send('Email is required');
-  } else if (password === '') {
-    res.status(400).send('Password is required');
-  } 
+  if (email === '') {//in order to make first two 400 code work, first delete code in urls_register.ejs the "required" after "email" and "password".
+    return res.status(400).send('Email is required!');
+  }
+   if (password === '') {
+    return res.status(400).send('Password is required!');
+  }  
+   const emailExist = Object.values(users).find((user) => user.email === email);
+  if (emailExist) {
+    return res.status(400).send('This email is already registered!');
+  }
   newUser = addUser(req.body)
   res.cookie('user_id', newUser.id)
   res.redirect('/urls');
