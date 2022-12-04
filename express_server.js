@@ -26,7 +26,7 @@ const users = {
 const currentUser = cookie => {
   for (let ids in users) {
     if (cookie === ids) {
-      return users[ids]['email-address'];
+      return users[ids]['email'];
     }
   }
 };
@@ -121,25 +121,38 @@ app.post("/register", (req, res) => {
 
 app.get("/login", (req, res) => {
   templateVars = { current_user: currentUser(req.cookies['user_id'], users) }
-  res.render("login", templateVars);
+  res.render("urls_login", templateVars);
 })
 
+const fetchUserInfo = (email, database) => {
+  for (let key in database) {
+    if (database[key].email === email) {
+      return database[key];
+    }
+  }
+  return undefined;
+};
+
 app.post("/login", (req, res) => {
-  const emailUsed = req.body['email-address'];
+  const emailUsed = req.body['email'];
   const pwdUsed = req.body['password'];
   if (fetchUserInfo(emailUsed, users)) {
     const password = fetchUserInfo(emailUsed, users).password;
     const id = fetchUserInfo(emailUsed, users).id;
     if (password !== pwdUsed) {
-      res.status(403).send('Error 403... re-enter your password')
+      res.status(403).send('Error 403... Password incorrect!')
     } else {
       res.cookie('user_id', id);
       res.redirect('/urls');
     }
   } else {
-    res.status(403).send('Error 403... email not found')
+    res.status(403).send('Error 403... Email not found!')
   }
 });
+
+app.get("/debug/database", (req, res) => {
+res.json(users)
+})
 
 app.post("/logout", (req, res) => {
   res.clearCookie('user_id');

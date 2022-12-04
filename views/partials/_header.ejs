@@ -21,7 +21,7 @@
     <div>
       <% if (current_user) {%>
         <form method="POST" action="/logout">
-          <span style="width: 2000px;">Logged in As: <%= current_user %>!</span>
+          <span style="width: 2000px;">Logged In As: <%= current_user %></span>
           <button type="submit" class="btn btn-outline-secondary">Logout</button>
         </form>
       <% } else { %>
