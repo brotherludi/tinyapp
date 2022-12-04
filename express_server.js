@@ -23,6 +23,14 @@ const users = {
   },
 };
 
+const currentUser = cookie => {
+  for (let ids in users) {
+    if (cookie === ids) {
+      return users[ids]['email-address'];
+    }
+  }
+};
+
 function generateRandomString() {
   const lowerCase = 'abcdefghijklmnopqrstuvwxyz';
   const upperCase = lowerCase.toUpperCase();
@@ -61,17 +69,21 @@ app.get("/hello", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
-  let templateVars = { urls: urlDatabase, user_id: req.cookies['user_id'] };
+  let templateVars = { urls: urlDatabase, current_user: currentUser(req.cookies['user_id'])};
   res.render("urls_index", templateVars);
 });
 
 app.get("/urls/new", (req, res) => {
-  let templateVars = { user_id: req.cookies['user_id']}
+  const current_user = currentUser(req.cookies['user_id'])
+  if (!current_user) {
+    res.redirect('/login');
+  }
+  let templateVars = {current_user: current_user}
   res.render("urls_new", templateVars);
 });
 
 app.post("/urls", (req, res) => {
-  console.log(req.body); // Log the POST request body to the console
+  //console.log(req.body); // Log the POST request body to the console
   const shortURL = generateShortURL()
   const longURL = req.body.longURL
   urlDatabase[shortURL] = longURL
@@ -79,9 +91,8 @@ app.post("/urls", (req, res) => {
 });
 
 app.get("/register", (req, res) => {
-  templateVars = { user_id :req.cookies['user_id']}
+  templateVars = {current_user: currentUser(req.cookies['user_id'], users)}
   res.render("urls_register", templateVars);
-  res.redirect('/urls');
 })
 
 const addUser = newUser => {
@@ -101,17 +112,33 @@ app.post("/register", (req, res) => {
   }  
    const emailExist = Object.values(users).find((user) => user.email === email);
   if (emailExist) {
-    return res.status(400).send('This email is already registered!');
+    return res.status(400).send('Email is Already Registered!');
   }
   newUser = addUser(req.body)
   res.cookie('user_id', newUser.id)
   res.redirect('/urls');
 })
 
+app.get("/login", (req, res) => {
+  templateVars = { current_user: currentUser(req.cookies['user_id'], users) }
+  res.render("login", templateVars);
+})
+
 app.post("/login", (req, res) => {
-  const user_id = req.body.user_id;
-  res.cookie('user_id', user_id);
-  res.status(400).send('Something went wrong, please try again.') 
+  const emailUsed = req.body['email-address'];
+  const pwdUsed = req.body['password'];
+  if (fetchUserInfo(emailUsed, users)) {
+    const password = fetchUserInfo(emailUsed, users).password;
+    const id = fetchUserInfo(emailUsed, users).id;
+    if (password !== pwdUsed) {
+      res.status(403).send('Error 403... re-enter your password')
+    } else {
+      res.cookie('user_id', id);
+      res.redirect('/urls');
+    }
+  } else {
+    res.status(403).send('Error 403... email not found')
+  }
 });
 
 app.post("/logout", (req, res) => {
@@ -128,7 +155,7 @@ app.post("/urls/:id", (req, res) => {
 
 //edit url
 app.get("/urls/:id", (req, res) => {
-  const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], user_id: req.cookies['user_id']};
+  const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], current_user: req.cookies['current_user']};
   res.render("urls_show", templateVars);
 });
 
