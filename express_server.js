@@ -150,13 +150,11 @@ app.post("/login", (req, res) => {
   }
 });
 
-app.get("/debug/database", (req, res) => {
-res.json(users)
-})
+app.get("/debug/database", (req, res) => {res.json(users)})
 
 app.post("/logout", (req, res) => {
   res.clearCookie('user_id');
-  res.redirect('/urls');
+  res.redirect('/login');
 });
 
 app.post("/urls/:id", (req, res) => { 
