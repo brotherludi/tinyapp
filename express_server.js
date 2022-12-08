@@ -84,15 +84,23 @@ app.get("/urls/new", (req, res) => {
 
 app.post("/urls", (req, res) => {
   //console.log(req.body); // Log the POST request body to the console
+  if (!req.cookies['user_id']) {
+    res.status(401).send("Please login!");
+} else {
   const shortURL = generateShortURL()
   const longURL = req.body.longURL
   urlDatabase[shortURL] = longURL
   res.redirect("/urls"); 
+}
 });
 
 app.get("/register", (req, res) => {
+  if (req.cookies['user_id']) {
+    res.redirect("/urls");
+} else {
   templateVars = {current_user: currentUser(req.cookies['user_id'], users)}
   res.render("urls_register", templateVars);
+  }
 })
 
 const addUser = newUser => {
@@ -120,8 +128,12 @@ app.post("/register", (req, res) => {
 })
 
 app.get("/login", (req, res) => {
+  if (req.cookies['user_id']) {
+    res.redirect("/urls");
+} else {
   templateVars = { current_user: currentUser(req.cookies['user_id'], users) }
   res.render("urls_login", templateVars);
+}
 })
 
 const fetchUserInfo = (email, database) => {
@@ -132,21 +144,22 @@ const fetchUserInfo = (email, database) => {
   }
   return undefined;
 };
-
+//Endpoint to log in a user using email and password
 app.post("/login", (req, res) => {
   const emailUsed = req.body['email'];
   const pwdUsed = req.body['password'];
-  if (fetchUserInfo(emailUsed, users)) {
-    const password = fetchUserInfo(emailUsed, users).password;
-    const id = fetchUserInfo(emailUsed, users).id;
+  const user = fetchUserInfo(emailUsed, users)
+  if (user) {
+    const password = user.password;
+    const id = user.id;
     if (password !== pwdUsed) {
-      res.status(403).send('Error 403... Password incorrect!')
+      res.status(403).send('Error 403 - Password incorrect!')
     } else {
       res.cookie('user_id', id);
       res.redirect('/urls');
     }
   } else {
-    res.status(403).send('Error 403... Email not found!')
+    res.status(403).send('Error 403 - Email not found!')
   }
 });
 
@@ -166,6 +179,9 @@ app.post("/urls/:id", (req, res) => {
 
 //edit url
 app.get("/urls/:id", (req, res) => {
+  if (!urlDatabase[req.params.id]) {
+    return res.status(404).send("Short url invalid!");
+  } 
   const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], current_user: req.cookies['current_user']};
   res.render("urls_show", templateVars);
 });
@@ -176,6 +192,9 @@ app.post("/urls/:id/delete", (req, res) => {
 });
 
 app.get("/u/:id", (req, res) => {
+  if (!urlDatabase[req.params.id]) {
+    return res.status(404).send("Short url invalid!");
+  } 
   const longURL = urlDatabase[req.params.id]
   res.redirect(longURL);
 });
