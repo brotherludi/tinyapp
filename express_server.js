@@ -1,8 +1,9 @@
 const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
-const cookieParser = require('cookie-parser')
-app.use(cookieParser())
+const cookieParser = require('cookie-parser');
+const bcrypt = require("bcryptjs");
+app.use(cookieParser());
 app.set("view engine", "ejs");
 
 // const urlDatabase = {
@@ -25,12 +26,12 @@ const users = {
   userRandomID: {
     id: "userRandomID",
     email: "user@example.com",
-    password: "purple-monkey-dinosaur",
+    password: "$2a$10$ixrCSJgDmCl2rSFGQpKZMeAUtAOjB8ppH84UoDjbJx/YdEixgaH/W" //"purple-monkey-dinosaur",
   },
   user2RandomID: {
     id: "user2RandomID",
     email: "user2@example.com",
-    password: "dishwasher-funk",
+    password: "$2a$10$c4HsdpmrzS61hGrN4yfDe.G6bANLwqY3mOQrBmDK7jB/RQ7nFRgfq" //"dishwasher-funk",
   },
 };
 
@@ -150,7 +151,8 @@ app.post("/register", (req, res) => {
   if (emailExist) {
     return res.status(400).send('Email is Already Registered!');
   }
-  newUser = addUser(req.body)
+  const hashedPassword = bcrypt.hashSync(password, 10);
+  newUser = addUser({email: req.body.email, password: hashedPassword})
   res.cookie('user_id', newUser.id)
   res.redirect('/urls');
 })
@@ -175,12 +177,12 @@ const fetchUserInfo = (email, database) => {
 //Endpoint to log in a user using email and password
 app.post("/login", (req, res) => {
   const emailUsed = req.body['email'];
-  const pwdUsed = req.body['password'];
+  const pwdUsed = req.body['password'];//real password
   const user = fetchUserInfo(emailUsed, users)
   if (user) {
-    const password = user.password;
+    const password = user.password;//hashed password
     const id = user.id;
-    if (password !== pwdUsed) {
+    if (!bcrypt.compareSync(pwdUsed, password)) {
       res.status(403).send('Error 403 - Password incorrect!')
     } else {
       res.cookie('user_id', id);
