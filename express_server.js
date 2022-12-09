@@ -1,15 +1,13 @@
 const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
-const cookieParser = require('cookie-parser');
+const cookieSession = require('cookie-session');//Encrypted Cookies
 const bcrypt = require("bcryptjs");
-app.use(cookieParser());
 app.set("view engine", "ejs");
-
-// const urlDatabase = {
-//   "b2xVn2": "http://www.lighthouselabs.ca",
-//   "9sm5xK": "http://www.google.com"
-// };
+app.use(cookieSession({
+  name: 'user_id',
+  keys: ['id']
+}))
 
 const urlDatabase = {
   b6UTxQ: {
@@ -46,13 +44,14 @@ const currentUser = cookie => {
 const urlsForUser = (id) => {
   let userURLs = {}
   for (const url in urlDatabase) {
-    if(urlDatabase[url].userID === id) {
+    if (urlDatabase[url].userID === id) {
       userURLs[url] = urlDatabase[url]
     }
-  } 
+  }
   return userURLs
 }
 
+//Generate random six digit string
 function generateRandomString() {
   const lowerCase = 'abcdefghijklmnopqrstuvwxyz';
   const upperCase = lowerCase.toUpperCase();
@@ -67,7 +66,6 @@ function generateRandomString() {
   }
   return alphaNumeric[index];
 }
-
 const generateShortURL = () => {
   let randomString = '';
   while (randomString.length < 6) {
@@ -91,44 +89,42 @@ app.get("/hello", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
-  let userID = req.cookies['user_id']
+  let userID = req.session.user_id
   let userURLs = urlsForUser(userID)
-  let templateVars = { urls: userURLs, current_user: currentUser(req.cookies['user_id'])};
-  if (!req.cookies['user_id']) {
+  let templateVars = { urls: userURLs, current_user: currentUser(req.session.user_id) };
+  if (!req.session.user_id) {
     res.redirect('/login')
-  } else 
-  res.render("urls_index", templateVars);
+  } else
+    res.render("urls_index", templateVars);
 });
 
 app.get("/urls/new", (req, res) => {
-  const current_user = currentUser(req.cookies['user_id'])
+  const current_user = currentUser(req.session.user_id)
   if (!current_user) {
     res.redirect('/login');
   }
-  let templateVars = {current_user: current_user}
+  let templateVars = { current_user: current_user }
   res.render("urls_new", templateVars);
 });
 
 app.post("/urls", (req, res) => {
-  //console.log(req.body); // Log the POST request body to the console
-  if (!req.cookies['user_id']) {
+  if (!req.session.user_id) {
     res.status(401).send("Please login!");
-} else {
-  const shortURL = generateShortURL()
-  const longURL = req.body.longURL
-  const userID = req.cookies['user_id']
-  urlDatabase[shortURL] = {longURL: longURL, userID: userID}
-  console.log(urlDatabase)
-  res.redirect("/urls"); 
-}
+  } else {
+    const shortURL = generateShortURL()
+    const longURL = req.body.longURL
+    const userID = req.session.user_id
+    urlDatabase[shortURL] = { longURL: longURL, userID: userID }
+    res.redirect("/urls");
+  }
 });
 
 app.get("/register", (req, res) => {
-  if (req.cookies['user_id']) {
+  if (req.session.user_id) {
     res.redirect("/urls");
-} else {
-  templateVars = {current_user: currentUser(req.cookies['user_id'], users)}
-  res.render("urls_register", templateVars);
+  } else {
+    templateVars = { current_user: currentUser(req.session.user_id, users) }
+    res.render("urls_register", templateVars);
   }
 })
 
@@ -138,32 +134,32 @@ const addUser = newUser => {
   users[newUserId] = newUser;
   return newUser
 }
-
+//Register new user
 app.post("/register", (req, res) => {
-  const {email, password} = req.body;
+  const { email, password } = req.body;
   if (email === '') {//in order to make first two 400 code work, first delete code in urls_register.ejs the "required" after "email" and "password".
-    return res.status(400).send('Email is required!');
+    return res.status(400).send('🚨Email is required!📧');
   }
-   if (password === '') {
-    return res.status(400).send('Password is required!');
-  }  
-   const emailExist = Object.values(users).find((user) => user.email === email);
+  if (password === '') {
+    return res.status(400).send('🚨Password is required!😅');
+  }
+  const emailExist = Object.values(users).find((user) => user.email === email);
   if (emailExist) {
-    return res.status(400).send('Email is Already Registered!');
+    return res.status(400).send('🚨Email is Already Registered!😳');
   }
   const hashedPassword = bcrypt.hashSync(password, 10);
-  newUser = addUser({email: req.body.email, password: hashedPassword})
-  res.cookie('user_id', newUser.id)
+  newUser = addUser({ email: req.body.email, password: hashedPassword })
+  req.session.user_id = newUser.id;
   res.redirect('/urls');
 })
 
 app.get("/login", (req, res) => {
-  if (req.cookies['user_id']) {
+  if (req.session.user_id) {
     res.redirect("/urls");
-} else {
-  templateVars = { current_user: currentUser(req.cookies['user_id'], users) }
-  res.render("urls_login", templateVars);
-}
+  } else {
+    templateVars = { current_user: currentUser(req.session.user_id, users) }
+    res.render("urls_login", templateVars);
+  }
 })
 
 const fetchUserInfo = (email, database) => {
@@ -183,59 +179,60 @@ app.post("/login", (req, res) => {
     const password = user.password;//hashed password
     const id = user.id;
     if (!bcrypt.compareSync(pwdUsed, password)) {
-      res.status(403).send('Error 403 - Password incorrect!')
+      res.status(403).send('🚨Password incorrect!🤔')
     } else {
-      res.cookie('user_id', id);
+      req.session.user_id = id
       res.redirect('/urls');
     }
   } else {
-    res.status(403).send('Error 403 - Email not found, Please register first!')
+    res.status(403).send('🚨Email not found, Please register first!🤓')
   }
 });
 
-app.get("/debug/database", (req, res) => {res.json(users)})
-
+//logout
 app.post("/logout", (req, res) => {
   res.clearCookie('user_id');
   res.redirect('/login');
 });
 
-app.post("/urls/:id", (req, res) => { 
+app.post("/urls/:id", (req, res) => {
   const id = req.params.id
   const longURL = req.body.updatedURL
   urlDatabase[id].longURL = longURL
- res.redirect("/urls");
+  res.redirect("/urls");
 });
 
 //edit url
 app.get("/urls/:id", (req, res) => {
   let shortURL = req.params.id
   if (!urlDatabase[req.params.id]) {
-    return res.status(404).send("Short url invalid!");
-  } else if (!req.cookies['user_id']) {
-    res.status(401).send("Please login!");
-  } else if (urlDatabase[shortURL].userID !== req.cookies['user_id']) {
-    res.status(401).send("You do not own the URL!")
+    return res.status(404).send("🚨Short url invalid!😱");
+  } else if (!req.session.user_id) {
+    res.status(401).send("🚨Please login!🥸");
+  } else if (urlDatabase[shortURL].userID !== req.session.user_id) {
+    res.status(401).send("🚨You do not own the URL!😑")
   }
-  const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id].longURL, current_user: currentUser(req.cookies['user_id'])};
+  const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id].longURL, current_user: currentUser(req.session.user_id) };
   res.render("urls_show", templateVars);
 });
 
-app.post("/urls/:id/delete", (req, res) => { 
+//Delete a url
+app.post("/urls/:id/delete", (req, res) => {
   let shortURL = req.params.id
-  if (!req.cookies['user_id']) {
-    res.status(401).send("Please login!");
-  } else if (urlDatabase[shortURL].userID !== req.cookies['user_id']) {
-    res.status(401).send("You do not own the URL!")
+  if (!req.session.user_id) {
+    res.status(401).send("🚨Please login!");
+  } else if (urlDatabase[shortURL].userID !== req.session.user_id) {
+    res.status(401).send("🚨You do not own the URL!🫤")
   } else
-  delete urlDatabase[req.params.id]
+    delete urlDatabase[req.params.id]
   res.redirect("/urls");
 });
 
+//Go to the actual website
 app.get("/u/:id", (req, res) => {
   if (!urlDatabase[req.params.id].longURL) {
-    return res.status(404).send("Short url invalid!");
-  } 
+    return res.status(404).send("🚨Short url invalid!");
+  }
   const longURL = urlDatabase[req.params.id].longURL
   res.redirect(longURL);
 });
@@ -243,5 +240,3 @@ app.get("/u/:id", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}!`);
 });
-
-//START
